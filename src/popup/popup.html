@@ -12,7 +12,7 @@
       <h1>Medium Exporter <span id="version"></span></h1>
     </header>
 
-    <section id="article-info">
+    <section id="article-info" class="hidden">
       <p id="article-title" class="info-field">--</p>
       <p id="article-url" class="info-field url">--</p>
     </section>
@@ -22,6 +22,7 @@
       <p id="list-count" class="info-field url"></p>
       <div id="list-actions">
         <button id="btn-download-all" disabled>Download All as ZIP</button>
+        <button id="btn-wordpress-all" disabled>Send All to WordPress</button>
       </div>
       <div id="batch-progress" class="hidden">
         <div class="progress-bar">
@@ -31,7 +32,7 @@
       </div>
     </section>
 
-    <section id="options">
+    <section id="options" class="hidden">
       <label class="toggle-row">
         <input type="checkbox" id="toggle-frontmatter" checked />
         <span>Include frontmatter</span>
@@ -42,14 +43,14 @@
       </label>
     </section>
 
-    <section id="actions">
+    <section id="actions" class="hidden">
       <button id="btn-copy" disabled>Copy as Markdown</button>
       <button id="btn-download" disabled>Download .md</button>
       <button id="btn-obsidian" disabled>Send to Obsidian</button>
       <button id="btn-wordpress" disabled>Send to WordPress</button>
     </section>
 
-    <section id="obsidian-settings">
+    <section id="obsidian-settings" class="hidden">
       <button id="btn-toggle-settings" class="link-btn" type="button">Obsidian Settings</button>
       <div id="settings-panel" class="hidden">
         <label class="settings-label">

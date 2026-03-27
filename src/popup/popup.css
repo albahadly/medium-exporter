@@ -144,7 +144,7 @@ button:disabled {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 #settings-panel {
@@ -208,10 +208,23 @@ button:disabled {
 
 #list-actions {
   margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 #list-actions button {
   width: 100%;
+}
+
+#btn-wordpress-all {
+  background: #21759b;
+  color: #fff;
+  border-color: #1d6586;
+}
+
+#btn-wordpress-all:hover:not(:disabled) {
+  background: #1d6586;
 }
 
 .progress-bar {

@@ -10,12 +10,15 @@ const titleEl = document.getElementById('article-title')!;
 const urlEl = document.getElementById('article-url')!;
 const articleInfoEl = document.getElementById('article-info')!;
 const actionsEl = document.getElementById('actions')!;
+const optionsEl = document.getElementById('options')!;
+const obsidianSettingsEl = document.getElementById('obsidian-settings')!;
 
 // List-mode DOM references
 const listModeEl = document.getElementById('list-mode')!;
 const listTitleEl = document.getElementById('list-title')!;
 const listCountEl = document.getElementById('list-count')!;
 const downloadAllBtn = document.getElementById('btn-download-all') as HTMLButtonElement;
+const wordpressAllBtn = document.getElementById('btn-wordpress-all') as HTMLButtonElement;
 const batchProgressEl = document.getElementById('batch-progress')!;
 const progressFillEl = document.getElementById('progress-fill') as HTMLElement;
 const progressLabelEl = document.getElementById('progress-label')!;
@@ -100,6 +103,12 @@ function isListPageUrl(url: string): boolean {
 }
 
 async function initArticleMode(): Promise<void> {
+  // Reveal single-article sections
+  articleInfoEl.classList.remove('hidden');
+  actionsEl.classList.remove('hidden');
+  optionsEl.classList.remove('hidden');
+  obsidianSettingsEl.classList.remove('hidden');
+
   setStatus('Extracting article...', 'info');
 
   const response = await sendMessage({ type: 'EXTRACT' });
@@ -130,6 +139,8 @@ async function initListMode(): Promise<void> {
   // Swap visible sections
   articleInfoEl.classList.add('hidden');
   actionsEl.classList.add('hidden');
+  optionsEl.classList.add('hidden');
+  obsidianSettingsEl.classList.add('hidden');
   listModeEl.classList.remove('hidden');
 
   setStatus('Finding articles in list...', 'info');
@@ -146,6 +157,7 @@ async function initListMode(): Promise<void> {
     listTitleEl.textContent = listTitle;
     listCountEl.textContent = `${articleUrls.length} article${articleUrls.length === 1 ? '' : 's'} found`;
     downloadAllBtn.disabled = false;
+    wordpressAllBtn.disabled = false;
     setStatus('Ready.', 'success');
 
     downloadAllBtn.addEventListener('click', async () => {
@@ -163,6 +175,38 @@ async function initListMode(): Promise<void> {
         }
       }
       await downloadAllArticles(articleUrls);
+    });
+
+    wordpressAllBtn.addEventListener('click', async () => {
+      if (!wordpressSettings?.username || !wordpressSettings?.password) {
+        setStatus('Configure WordPress settings first.', 'error');
+        wpSettingsPanel.classList.remove('hidden');
+        return;
+      }
+
+      const endpointUrl = wordpressSettings.endpointUrl || 'http://192.168.68.92:9879/wp-json/wp/v2/posts';
+
+      // Request Medium fetch permission
+      const hasPermission = await chrome.permissions.contains({
+        origins: ['https://medium.com/*', 'https://*.medium.com/*'],
+      });
+      if (!hasPermission) {
+        const granted = await chrome.permissions.request({
+          origins: ['https://medium.com/*', 'https://*.medium.com/*'],
+        });
+        if (!granted) {
+          setStatus('Permission required to fetch articles.', 'error');
+          return;
+        }
+      }
+
+      const wpGranted = await ensureHostPermission(endpointUrl);
+      if (!wpGranted) {
+        setStatus('Permission denied for WordPress API URL.', 'error');
+        return;
+      }
+
+      await sendAllToWordPress(articleUrls, { ...wordpressSettings, endpointUrl });
     });
   }
 }
@@ -245,6 +289,63 @@ async function downloadAllArticles(urls: string[]): Promise<void> {
     response.type === 'DOWNLOAD_SUCCESS' && failed === 0 ? 'success' : 'info'
   );
   downloadAllBtn.disabled = false;
+}
+
+async function sendAllToWordPress(urls: string[], settings: WordPressSettings): Promise<void> {
+  wordpressAllBtn.disabled = true;
+  batchProgressEl.classList.remove('hidden');
+  updateProgress(0, urls.length);
+
+  let done = 0;
+  let failed = 0;
+
+  for (const url of urls) {
+    setStatus(`Sending ${done + 1} of ${urls.length} to WordPress\u2026`, 'info');
+
+    const fetchResp = await sendMessage({ type: 'FETCH_ARTICLE_HTML', url });
+
+    if (fetchResp.type !== 'FETCH_HTML_SUCCESS') {
+      failed++;
+      done++;
+      updateProgress(done, urls.length);
+      continue;
+    }
+
+    const doc = new DOMParser().parseFromString(fetchResp.html, 'text/html');
+    const parsed = parseArticleFromDoc(doc, url);
+
+    if (!parsed.success) {
+      failed++;
+      done++;
+      updateProgress(done, urls.length);
+      continue;
+    }
+
+    const wpResp = await sendMessage({
+      type: 'SEND_TO_WORDPRESS',
+      title: parsed.metadata.title || 'Untitled',
+      content: parsed.articleHtml,
+      settings,
+    });
+
+    if (wpResp.type !== 'WORDPRESS_SUCCESS') {
+      failed++;
+    }
+
+    done++;
+    updateProgress(done, urls.length);
+
+    // Brief pause to avoid hammering the server
+    await new Promise<void>((r) => setTimeout(r, 400));
+  }
+
+  const successCount = done - failed;
+  const msg =
+    failed > 0
+      ? `Sent ${successCount} of ${urls.length} articles to WordPress (${failed} failed).`
+      : `Sent ${done} articles to WordPress!`;
+  setStatus(msg, failed === 0 ? 'success' : 'info');
+  wordpressAllBtn.disabled = false;
 }
 
 function updateProgress(done: number, total: number): void {
