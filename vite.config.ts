@@ -6,6 +6,10 @@ export default defineConfig({
   plugins: [
     crx({ manifest: manifest as ManifestV3Export }),
   ],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
