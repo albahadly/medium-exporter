@@ -46,6 +46,7 @@
       <button id="btn-copy" disabled>Copy as Markdown</button>
       <button id="btn-download" disabled>Download .md</button>
       <button id="btn-obsidian" disabled>Send to Obsidian</button>
+      <button id="btn-wordpress" disabled>Send to WordPress</button>
     </section>
 
     <section id="obsidian-settings">
@@ -66,6 +67,27 @@
         <div class="settings-actions">
           <button id="btn-save-settings" type="button">Save</button>
           <button id="btn-test-connection" type="button">Test</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="wordpress-settings">
+      <button id="btn-toggle-wp-settings" class="link-btn" type="button">WordPress Settings</button>
+      <div id="wp-settings-panel" class="hidden">
+        <label class="settings-label">
+          Endpoint URL
+          <input type="text" id="wp-setting-endpoint" placeholder="http://192.168.68.92:9879/wp-json/wp/v2/posts" />
+        </label>
+        <label class="settings-label">
+          Username
+          <input type="text" id="wp-setting-username" placeholder="WordPress username" />
+        </label>
+        <label class="settings-label">
+          Application Password
+          <input type="password" id="wp-setting-password" placeholder="Application Password from WordPress" />
+        </label>
+        <div class="settings-actions">
+          <button id="btn-wp-save-settings" type="button">Save</button>
         </div>
       </div>
     </section>

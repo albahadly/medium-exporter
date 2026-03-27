@@ -2,7 +2,7 @@ import { htmlToMarkdown } from '../shared/converter';
 import { buildFrontmatter } from '../shared/frontmatter';
 import { parseArticleFromDoc } from '../shared/article-parser';
 import JSZip from 'jszip';
-import type { ArticleMetadata, ObsidianSettings } from '../shared/types';
+import type { ArticleMetadata, ObsidianSettings, WordPressSettings } from '../shared/types';
 import type { PopupMessage, BackgroundResponse } from '../shared/messages';
 
 // DOM references
@@ -28,6 +28,7 @@ const imagesToggle = document.getElementById(
 const copyBtn = document.getElementById('btn-copy') as HTMLButtonElement;
 const downloadBtn = document.getElementById('btn-download') as HTMLButtonElement;
 const obsidianBtn = document.getElementById('btn-obsidian') as HTMLButtonElement;
+const wordpressBtn = document.getElementById('btn-wordpress') as HTMLButtonElement;
 const statusEl = document.getElementById('status-message')!;
 const versionEl = document.getElementById('version')!;
 
@@ -46,6 +47,18 @@ const testConnectionBtn = document.getElementById(
   'btn-test-connection'
 ) as HTMLButtonElement;
 
+// WordPress settings DOM
+const toggleWpSettingsBtn = document.getElementById(
+  'btn-toggle-wp-settings'
+) as HTMLButtonElement;
+const wpSettingsPanel = document.getElementById('wp-settings-panel')!;
+const wpEndpointInput = document.getElementById('wp-setting-endpoint') as HTMLInputElement;
+const wpUsernameInput = document.getElementById('wp-setting-username') as HTMLInputElement;
+const wpPasswordInput = document.getElementById('wp-setting-password') as HTMLInputElement;
+const saveWpSettingsBtn = document.getElementById(
+  'btn-wp-save-settings'
+) as HTMLButtonElement;
+
 // Display version from manifest
 versionEl.textContent = `v${chrome.runtime.getManifest().version}`;
 
@@ -55,6 +68,7 @@ let currentFilename = '';
 let currentMetadata: ArticleMetadata | null = null;
 let currentArticleHtml = '';
 let obsidianSettings: ObsidianSettings | null = null;
+let wordpressSettings: WordPressSettings | null = null;
 
 // Initialization
 async function init(): Promise<void> {
@@ -107,6 +121,7 @@ async function initArticleMode(): Promise<void> {
     copyBtn.disabled = false;
     downloadBtn.disabled = false;
     obsidianBtn.disabled = false;
+    wordpressBtn.disabled = false;
     setStatus('Ready.', 'success');
   }
 }
@@ -270,12 +285,18 @@ function generateFilename(meta: ArticleMetadata): string {
 // Obsidian settings
 
 async function loadSettings(): Promise<void> {
-  const result = await chrome.storage.local.get('obsidianSettings');
+  const result = await chrome.storage.local.get(['obsidianSettings', 'wordpressSettings']);
   if (result.obsidianSettings) {
     obsidianSettings = result.obsidianSettings as ObsidianSettings;
     apiUrlInput.value = obsidianSettings.apiUrl;
     apiKeyInput.value = obsidianSettings.apiKey;
     folderInput.value = obsidianSettings.folderPath;
+  }
+  if (result.wordpressSettings) {
+    wordpressSettings = result.wordpressSettings as WordPressSettings;
+    wpEndpointInput.value = wordpressSettings.endpointUrl;
+    wpUsernameInput.value = wordpressSettings.username;
+    wpPasswordInput.value = wordpressSettings.password;
   }
 }
 
@@ -293,6 +314,17 @@ async function saveSettings(): Promise<void> {
 
   await chrome.storage.local.set({ obsidianSettings });
   setStatus('Obsidian settings saved.', 'success');
+}
+
+async function saveWpSettings(): Promise<void> {
+  wordpressSettings = {
+    endpointUrl: wpEndpointInput.value.trim() || 'http://192.168.68.92:9879/wp-json/wp/v2/posts',
+    username: wpUsernameInput.value.trim(),
+    password: wpPasswordInput.value.trim(),
+  };
+
+  await chrome.storage.local.set({ wordpressSettings });
+  setStatus('WordPress settings saved.', 'success');
 }
 
 async function ensureHostPermission(apiUrl: string): Promise<boolean> {
@@ -355,8 +387,13 @@ toggleSettingsBtn.addEventListener('click', () => {
   settingsPanel.classList.toggle('hidden');
 });
 
+toggleWpSettingsBtn.addEventListener('click', () => {
+  wpSettingsPanel.classList.toggle('hidden');
+});
+
 saveSettingsBtn.addEventListener('click', () => saveSettings());
 testConnectionBtn.addEventListener('click', () => testConnection());
+saveWpSettingsBtn.addEventListener('click', () => saveWpSettings());
 
 copyBtn.addEventListener('click', async () => {
   try {
@@ -412,6 +449,37 @@ obsidianBtn.addEventListener('click', async () => {
 
   if (response.type === 'OBSIDIAN_SUCCESS') {
     setStatus('Sent to Obsidian!', 'success');
+  } else if (response.type === 'ERROR') {
+    setStatus(response.error, 'error');
+  }
+});
+
+wordpressBtn.addEventListener('click', async () => {
+  if (!wordpressSettings?.username || !wordpressSettings?.password) {
+    setStatus('Configure WordPress settings first.', 'error');
+    wpSettingsPanel.classList.remove('hidden');
+    return;
+  }
+
+  const endpointUrl = wordpressSettings.endpointUrl || 'http://192.168.68.92:9879/wp-json/wp/v2/posts';
+
+  const granted = await ensureHostPermission(endpointUrl);
+  if (!granted) {
+    setStatus('Permission denied for WordPress API URL.', 'error');
+    return;
+  }
+
+  setStatus('Sending to WordPress...', 'info');
+
+  const response = await sendMessage({
+    type: 'SEND_TO_WORDPRESS',
+    title: currentMetadata?.title ?? 'Untitled',
+    content: currentArticleHtml,
+    settings: { ...wordpressSettings, endpointUrl },
+  });
+
+  if (response.type === 'WORDPRESS_SUCCESS') {
+    setStatus('Sent to WordPress as draft!', 'success');
   } else if (response.type === 'ERROR') {
     setStatus(response.error, 'error');
   }

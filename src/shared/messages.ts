@@ -1,4 +1,4 @@
-import type { ArticleMetadata, ObsidianSettings } from './types';
+import type { ArticleMetadata, ObsidianSettings, WordPressSettings } from './types';
 
 // Popup -> Background
 
@@ -34,12 +34,20 @@ export interface SendToObsidianMessage {
   settings: ObsidianSettings;
 }
 
+export interface SendToWordPressMessage {
+  type: 'SEND_TO_WORDPRESS';
+  title: string;
+  content: string;
+  settings: WordPressSettings;
+}
+
 export type PopupMessage =
   | ExtractMessage
   | ExtractListMessage
   | FetchArticleHtmlMessage
   | DownloadFileMessage
-  | SendToObsidianMessage;
+  | SendToObsidianMessage
+  | SendToWordPressMessage;
 
 // Background -> Popup
 
@@ -69,6 +77,11 @@ export interface ObsidianSuccessResponse {
   type: 'OBSIDIAN_SUCCESS';
 }
 
+export interface WordPressSuccessResponse {
+  type: 'WORDPRESS_SUCCESS';
+  postUrl: string;
+}
+
 export interface ErrorResponse {
   type: 'ERROR';
   error: string;
@@ -80,4 +93,5 @@ export type BackgroundResponse =
   | FetchHtmlSuccessResponse
   | DownloadSuccessResponse
   | ObsidianSuccessResponse
+  | WordPressSuccessResponse
   | ErrorResponse;

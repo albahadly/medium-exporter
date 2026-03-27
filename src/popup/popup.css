@@ -104,7 +104,27 @@ button:disabled {
   cursor: not-allowed;
 }
 
+#btn-wordpress {
+  flex-basis: 100%;
+  background: #21759b;
+  color: #fff;
+  border-color: #1d6586;
+}
+
+#btn-wordpress:hover:not(:disabled) {
+  background: #1d6586;
+}
+
+#btn-wordpress:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 #obsidian-settings {
+  margin-bottom: 12px;
+}
+
+#wordpress-settings {
   margin-bottom: 12px;
 }
 

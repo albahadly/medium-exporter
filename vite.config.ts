@@ -7,8 +7,12 @@ export default defineConfig({
     crx({ manifest: manifest as ManifestV3Export }),
   ],
   server: {
+    host: '0.0.0.0',
     port: 5173,
     strictPort: true,
+    cors: {
+      origin: '*',
+    },
   },
   build: {
     outDir: 'dist',

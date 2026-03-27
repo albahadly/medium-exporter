@@ -1,5 +1,5 @@
 import type { PopupMessage, BackgroundResponse } from '../shared/messages';
-import type { ExtractResult, ObsidianSettings } from '../shared/types';
+import type { ExtractResult, ObsidianSettings, WordPressSettings } from '../shared/types';
 import { extractArticle } from '../content/extractor';
 import { extractListArticles } from '../content/list-extractor';
 import type { ListExtractResult } from '../content/list-extractor';
@@ -36,6 +36,15 @@ chrome.runtime.onMessage.addListener(
       handleSendToObsidian(
         message.markdown,
         message.filename,
+        message.settings
+      ).then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'SEND_TO_WORDPRESS') {
+      handleSendToWordPress(
+        message.title,
+        message.content,
         message.settings
       ).then(sendResponse);
       return true;
@@ -191,6 +200,53 @@ function encodeVaultPath(filepath: string): string {
     .split('/')
     .map((segment) => encodeURIComponent(segment))
     .join('/');
+}
+
+async function handleSendToWordPress(
+  title: string,
+  content: string,
+  settings: WordPressSettings
+): Promise<BackgroundResponse> {
+  try {
+    const credentials = btoa(`${settings.username}:${settings.password}`);
+
+    const response = await fetch(settings.endpointUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${credentials}`,
+      },
+      body: JSON.stringify({ title, content, status: 'publish' }),
+      mode: 'cors',
+      credentials: 'omit',
+    });
+
+    if (response.ok) {
+      const data = await response.json() as { link?: string };
+      return { type: 'WORDPRESS_SUCCESS', postUrl: data.link ?? '' };
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        type: 'ERROR',
+        error: 'Authentication failed. Check your WordPress username and application password.',
+      };
+    }
+
+    return {
+      type: 'ERROR',
+      error: `WordPress API error (${response.status}): ${response.statusText}`,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      return {
+        type: 'ERROR',
+        error: 'Could not connect to WordPress. Make sure the site is accessible.',
+      };
+    }
+    return { type: 'ERROR', error: `WordPress send failed: ${msg}` };
+  }
 }
 
 async function handleDownload(
