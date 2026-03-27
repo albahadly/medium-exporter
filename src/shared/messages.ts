@@ -6,10 +6,25 @@ export interface ExtractMessage {
   type: 'EXTRACT';
 }
 
+export interface ExtractListMessage {
+  type: 'EXTRACT_LIST';
+}
+
+export interface FetchArticleHtmlMessage {
+  type: 'FETCH_ARTICLE_HTML';
+  url: string;
+}
+
 export interface DownloadFileMessage {
   type: 'DOWNLOAD_FILE';
-  markdown: string;
+  /** File content as text (markdown, etc.) */
+  content: string;
   filename: string;
+  mimeType?: string;
+  /** Set true when content is already base64-encoded (e.g. ZIP from JSZip). */
+  contentIsBase64?: boolean;
+  /** Whether to show a Save As dialog. Defaults to true. */
+  saveAs?: boolean;
 }
 
 export interface SendToObsidianMessage {
@@ -21,6 +36,8 @@ export interface SendToObsidianMessage {
 
 export type PopupMessage =
   | ExtractMessage
+  | ExtractListMessage
+  | FetchArticleHtmlMessage
   | DownloadFileMessage
   | SendToObsidianMessage;
 
@@ -30,6 +47,18 @@ export interface ExtractSuccessResponse {
   type: 'EXTRACT_SUCCESS';
   metadata: ArticleMetadata;
   articleHtml: string;
+}
+
+export interface ExtractListSuccessResponse {
+  type: 'EXTRACT_LIST_SUCCESS';
+  articleUrls: string[];
+  listTitle: string;
+}
+
+export interface FetchHtmlSuccessResponse {
+  type: 'FETCH_HTML_SUCCESS';
+  html: string;
+  url: string;
 }
 
 export interface DownloadSuccessResponse {
@@ -47,6 +76,8 @@ export interface ErrorResponse {
 
 export type BackgroundResponse =
   | ExtractSuccessResponse
+  | ExtractListSuccessResponse
+  | FetchHtmlSuccessResponse
   | DownloadSuccessResponse
   | ObsidianSuccessResponse
   | ErrorResponse;

@@ -17,6 +17,20 @@
       <p id="article-url" class="info-field url">--</p>
     </section>
 
+    <section id="list-mode" class="hidden">
+      <p id="list-title" class="info-field"></p>
+      <p id="list-count" class="info-field url"></p>
+      <div id="list-actions">
+        <button id="btn-download-all" disabled>Download All as ZIP</button>
+      </div>
+      <div id="batch-progress" class="hidden">
+        <div class="progress-bar">
+          <div id="progress-fill"></div>
+        </div>
+        <p id="progress-label"></p>
+      </div>
+    </section>
+
     <section id="options">
       <label class="toggle-row">
         <input type="checkbox" id="toggle-frontmatter" checked />

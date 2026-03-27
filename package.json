@@ -8,6 +8,7 @@
     "build": "tsc && vite build"
   },
   "dependencies": {
+    "jszip": "^3.10.1",
     "turndown": "^7.2.0"
   },
   "devDependencies": {

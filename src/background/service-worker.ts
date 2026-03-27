@@ -1,6 +1,8 @@
 import type { PopupMessage, BackgroundResponse } from '../shared/messages';
 import type { ExtractResult, ObsidianSettings } from '../shared/types';
 import { extractArticle } from '../content/extractor';
+import { extractListArticles } from '../content/list-extractor';
+import type { ListExtractResult } from '../content/list-extractor';
 
 chrome.runtime.onMessage.addListener(
   (message: PopupMessage, _sender, sendResponse) => {
@@ -9,8 +11,24 @@ chrome.runtime.onMessage.addListener(
       return true; // async response
     }
 
+    if (message.type === 'EXTRACT_LIST') {
+      handleExtractList().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'FETCH_ARTICLE_HTML') {
+      handleFetchArticleHtml(message.url).then(sendResponse);
+      return true;
+    }
+
     if (message.type === 'DOWNLOAD_FILE') {
-      handleDownload(message.markdown, message.filename).then(sendResponse);
+      handleDownload(
+        message.content,
+        message.filename,
+        message.mimeType ?? 'text/markdown',
+        message.saveAs ?? true,
+        message.contentIsBase64 ?? false
+      ).then(sendResponse);
       return true;
     }
 
@@ -24,6 +42,65 @@ chrome.runtime.onMessage.addListener(
     }
   }
 );
+
+async function handleExtractList(): Promise<BackgroundResponse> {
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
+    if (!tab?.id) {
+      return { type: 'ERROR', error: 'No active tab found.' };
+    }
+
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: extractListArticles,
+    });
+
+    const result = results[0]?.result as ListExtractResult | undefined;
+
+    if (!result) {
+      return { type: 'ERROR', error: 'List extraction returned no result.' };
+    }
+
+    if (!result.success) {
+      return { type: 'ERROR', error: result.error };
+    }
+
+    return {
+      type: 'EXTRACT_LIST_SUCCESS',
+      articleUrls: result.articleUrls,
+      listTitle: result.listTitle,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { type: 'ERROR', error: `List extraction failed: ${msg}` };
+  }
+}
+
+async function handleFetchArticleHtml(url: string): Promise<BackgroundResponse> {
+  try {
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: { Accept: 'text/html,application/xhtml+xml' },
+    });
+
+    if (!response.ok) {
+      return {
+        type: 'ERROR',
+        error: `Fetch failed (${response.status}): ${response.statusText}`,
+      };
+    }
+
+    const html = await response.text();
+    return { type: 'FETCH_HTML_SUCCESS', html, url };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { type: 'ERROR', error: `Could not fetch article: ${msg}` };
+  }
+}
 
 async function handleExtract(): Promise<BackgroundResponse> {
   try {
@@ -117,23 +194,33 @@ function encodeVaultPath(filepath: string): string {
 }
 
 async function handleDownload(
-  markdown: string,
-  filename: string
+  content: string,
+  filename: string,
+  mimeType: string,
+  saveAs: boolean,
+  contentIsBase64: boolean
 ): Promise<BackgroundResponse> {
   try {
-    const encoder = new TextEncoder();
-    const uint8 = encoder.encode(markdown);
-    let binary = '';
-    for (let i = 0; i < uint8.length; i++) {
-      binary += String.fromCharCode(uint8[i]);
+    let base64: string;
+
+    if (contentIsBase64) {
+      base64 = content;
+    } else {
+      const encoder = new TextEncoder();
+      const uint8 = encoder.encode(content);
+      let binary = '';
+      for (let i = 0; i < uint8.length; i++) {
+        binary += String.fromCharCode(uint8[i]);
+      }
+      base64 = btoa(binary);
     }
-    const base64 = btoa(binary);
-    const dataUrl = `data:text/markdown;charset=utf-8;base64,${base64}`;
+
+    const dataUrl = `data:${mimeType};base64,${base64}`;
 
     await chrome.downloads.download({
       url: dataUrl,
       filename,
-      saveAs: true,
+      saveAs,
     });
 
     return { type: 'DOWNLOAD_SUCCESS' };

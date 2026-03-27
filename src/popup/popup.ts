@@ -1,11 +1,24 @@
 import { htmlToMarkdown } from '../shared/converter';
 import { buildFrontmatter } from '../shared/frontmatter';
+import { parseArticleFromDoc } from '../shared/article-parser';
+import JSZip from 'jszip';
 import type { ArticleMetadata, ObsidianSettings } from '../shared/types';
 import type { PopupMessage, BackgroundResponse } from '../shared/messages';
 
 // DOM references
 const titleEl = document.getElementById('article-title')!;
 const urlEl = document.getElementById('article-url')!;
+const articleInfoEl = document.getElementById('article-info')!;
+const actionsEl = document.getElementById('actions')!;
+
+// List-mode DOM references
+const listModeEl = document.getElementById('list-mode')!;
+const listTitleEl = document.getElementById('list-title')!;
+const listCountEl = document.getElementById('list-count')!;
+const downloadAllBtn = document.getElementById('btn-download-all') as HTMLButtonElement;
+const batchProgressEl = document.getElementById('batch-progress')!;
+const progressFillEl = document.getElementById('progress-fill') as HTMLElement;
+const progressLabelEl = document.getElementById('progress-label')!;
 const frontmatterToggle = document.getElementById(
   'toggle-frontmatter'
 ) as HTMLInputElement;
@@ -45,9 +58,35 @@ let obsidianSettings: ObsidianSettings | null = null;
 
 // Initialization
 async function init(): Promise<void> {
-  setStatus('Extracting article...', 'info');
+  setStatus('Loading...', 'info');
 
   await loadSettings();
+
+  // Check current tab URL to decide article vs list mode
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tabUrl = tab?.url || '';
+
+  if (isListPageUrl(tabUrl)) {
+    await initListMode();
+  } else {
+    await initArticleMode();
+  }
+}
+
+function isListPageUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.hostname !== 'medium.com' && !u.hostname.endsWith('.medium.com')) {
+      return false;
+    }
+    return /\/list\//.test(u.pathname) || /\/@[^/]+\/lists/.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
+
+async function initArticleMode(): Promise<void> {
+  setStatus('Extracting article...', 'info');
 
   const response = await sendMessage({ type: 'EXTRACT' });
 
@@ -70,6 +109,133 @@ async function init(): Promise<void> {
     obsidianBtn.disabled = false;
     setStatus('Ready.', 'success');
   }
+}
+
+async function initListMode(): Promise<void> {
+  // Swap visible sections
+  articleInfoEl.classList.add('hidden');
+  actionsEl.classList.add('hidden');
+  listModeEl.classList.remove('hidden');
+
+  setStatus('Finding articles in list...', 'info');
+
+  const response = await sendMessage({ type: 'EXTRACT_LIST' });
+
+  if (response.type === 'ERROR') {
+    setStatus(response.error, 'error');
+    return;
+  }
+
+  if (response.type === 'EXTRACT_LIST_SUCCESS') {
+    const { articleUrls, listTitle } = response;
+    listTitleEl.textContent = listTitle;
+    listCountEl.textContent = `${articleUrls.length} article${articleUrls.length === 1 ? '' : 's'} found`;
+    downloadAllBtn.disabled = false;
+    setStatus('Ready.', 'success');
+
+    downloadAllBtn.addEventListener('click', async () => {
+      // Must request permission in direct response to user gesture
+      const hasPermission = await chrome.permissions.contains({
+        origins: ['https://medium.com/*', 'https://*.medium.com/*'],
+      });
+      if (!hasPermission) {
+        const granted = await chrome.permissions.request({
+          origins: ['https://medium.com/*', 'https://*.medium.com/*'],
+        });
+        if (!granted) {
+          setStatus('Permission required to fetch articles.', 'error');
+          return;
+        }
+      }
+      await downloadAllArticles(articleUrls);
+    });
+  }
+}
+
+async function downloadAllArticles(urls: string[]): Promise<void> {
+  downloadAllBtn.disabled = true;
+  batchProgressEl.classList.remove('hidden');
+  updateProgress(0, urls.length);
+
+  const options = {
+    includeFrontmatter: frontmatterToggle.checked,
+    includeImages: imagesToggle.checked,
+  };
+
+  const zip = new JSZip();
+  let done = 0;
+  let failed = 0;
+
+  for (const url of urls) {
+    setStatus(`Fetching ${done + 1} of ${urls.length}\u2026`, 'info');
+
+    const fetchResp = await sendMessage({ type: 'FETCH_ARTICLE_HTML', url });
+
+    if (fetchResp.type !== 'FETCH_HTML_SUCCESS') {
+      failed++;
+      done++;
+      updateProgress(done, urls.length);
+      continue;
+    }
+
+    const doc = new DOMParser().parseFromString(fetchResp.html, 'text/html');
+    const parsed = parseArticleFromDoc(doc, url);
+
+    if (!parsed.success) {
+      failed++;
+      done++;
+      updateProgress(done, urls.length);
+      continue;
+    }
+
+    const body = htmlToMarkdown(parsed.articleHtml, options);
+    let md = options.includeFrontmatter
+      ? buildFrontmatter(parsed.metadata) + '\n'
+      : '';
+    md += `# ${parsed.metadata.title}\n\n${body}`;
+    md = md.replace(/^\n+/, '');
+
+    const filename = generateFilename(parsed.metadata);
+    zip.file(filename, md);
+
+    done++;
+    updateProgress(done, urls.length);
+
+    // Brief pause to avoid hammering the server
+    await new Promise<void>((r) => setTimeout(r, 400));
+  }
+
+  setStatus('Building ZIP\u2026', 'info');
+
+  const zipBlob = await zip.generateAsync({ type: 'base64' });
+  const listTitle = listTitleEl.textContent?.trim() || 'medium-list';
+  const zipFilename = listTitle.replace(/[<>:"/\\|?*]/g, '').trim() + '.zip';
+
+  const response = await sendMessage({
+    type: 'DOWNLOAD_FILE',
+    content: zipBlob,
+    filename: zipFilename,
+    mimeType: 'application/zip',
+    contentIsBase64: true,
+    saveAs: true,
+  });
+
+  const successCount = done - failed;
+  const msg =
+    failed > 0
+      ? `ZIP saved — ${successCount} of ${urls.length} articles (${failed} failed).`
+      : `ZIP saved — ${done} articles.`;
+  setStatus(
+    response.type === 'DOWNLOAD_SUCCESS' ? msg : (response as { error: string }).error,
+    response.type === 'DOWNLOAD_SUCCESS' && failed === 0 ? 'success' : 'info'
+  );
+  downloadAllBtn.disabled = false;
+}
+
+function updateProgress(done: number, total: number): void {
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  progressFillEl.style.width = `${pct}%`;
+  progressLabelEl.textContent = `${done} / ${total}`;
 }
 
 function buildMarkdown(): void {
@@ -205,7 +371,7 @@ downloadBtn.addEventListener('click', async () => {
   setStatus('Starting download...', 'info');
   const response = await sendMessage({
     type: 'DOWNLOAD_FILE',
-    markdown: currentMarkdown,
+    content: currentMarkdown,
     filename: currentFilename,
   });
 

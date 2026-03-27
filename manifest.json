@@ -33,6 +33,8 @@
     "http://127.0.0.1:*/*",
     "https://127.0.0.1:*/*",
     "http://localhost:*/*",
-    "https://localhost:*/*"
+    "https://localhost:*/*",
+    "https://medium.com/*",
+    "https://*.medium.com/*"
   ]
 }
