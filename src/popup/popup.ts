@@ -296,6 +296,9 @@ async function sendAllToWordPress(urls: string[], settings: WordPressSettings): 
   batchProgressEl.classList.remove('hidden');
   updateProgress(0, urls.length);
 
+  // Use the list title as category
+  const category = listTitleEl.textContent?.trim() || undefined;
+
   let done = 0;
   let failed = 0;
 
@@ -325,6 +328,7 @@ async function sendAllToWordPress(urls: string[], settings: WordPressSettings): 
       type: 'SEND_TO_WORDPRESS',
       title: parsed.metadata.title || 'Untitled',
       content: parsed.articleHtml,
+      category,
       settings,
     });
 
@@ -580,7 +584,7 @@ wordpressBtn.addEventListener('click', async () => {
   });
 
   if (response.type === 'WORDPRESS_SUCCESS') {
-    setStatus('Sent to WordPress as draft!', 'success');
+    setStatus('Sent to WordPress as published!', 'success');
   } else if (response.type === 'ERROR') {
     setStatus(response.error, 'error');
   }

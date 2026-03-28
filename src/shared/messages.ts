@@ -38,6 +38,7 @@ export interface SendToWordPressMessage {
   type: 'SEND_TO_WORDPRESS';
   title: string;
   content: string;
+  category?: string;
   settings: WordPressSettings;
 }
 

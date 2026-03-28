@@ -205,18 +205,26 @@ function encodeVaultPath(filepath: string): string {
 async function handleSendToWordPress(
   title: string,
   content: string,
-  settings: WordPressSettings
+  settings: WordPressSettings,
+  category?: string
 ): Promise<BackgroundResponse> {
   try {
     const credentials = btoa(`${settings.username}:${settings.password}`);
+    // If category is provided, send as categories array (WordPress REST API expects slugs or names)
+    const body: any = { title, content, status: 'publish' };
 
+    /*
+    if (category) {
+      body.categories = [category];
+    }
+*/
     const response = await fetch(settings.endpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Basic ${credentials}`,
       },
-      body: JSON.stringify({ title, content, status: 'publish' }),
+      body: JSON.stringify(body),
       mode: 'cors',
       credentials: 'omit',
     });
