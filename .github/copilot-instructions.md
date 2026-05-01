@@ -12,8 +12,17 @@ Primary workflows:
 - Dev: `npm run dev`
 - Build: `npm run build`
 - Type check only: `npx tsc --noEmit`
+- Bump extension version: `npm run version:bump`
 
 Always run type checking after TypeScript edits.
+
+## Versioning Rule
+- After any implemented change intended to ship, run `npm run version:bump`.
+- Do not edit versions manually in `package.json` or `manifest.json`.
+- Use:
+	- `npm run version:bump` or `npm run version:bump:patch` for patch releases
+	- `npm run version:bump:minor` for minor releases
+	- `npm run version:bump:major` for major releases
 
 ## Architecture
 - `src/content/extractor.ts`: injected article extractor (must be self-contained)

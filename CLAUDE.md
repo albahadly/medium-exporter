@@ -127,6 +127,7 @@ No `turndown-plugin-gfm` — not needed for MVP. Custom rules handle code blocks
 ```bash
 npm run dev     # Vite dev server with HMR, outputs to dist/
 npm run build   # Production build (tsc + vite build)
+npm run version:bump  # Bump extension patch version in package + manifest
 ```
 
 ## Loading in Chrome

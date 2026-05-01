@@ -33,6 +33,14 @@ npx tsc --noEmit
 
 Runs TypeScript in check-only mode. The project uses strict mode with Chrome API types.
 
+## Versioning
+
+```bash
+npm run version:bump
+```
+
+Bumps patch version and syncs `package.json` + `manifest.json` (+ lockfile when present).
+
 ## Coding Rules
 
 ### Extractor Constraints

@@ -39,6 +39,12 @@ npm run dev
 
 Starts Vite with HMR. The extension auto-reloads on code changes.
 
+To bump extension version after changes:
+
+```bash
+npm run version:bump
+```
+
 ## Usage
 
 ### Single article

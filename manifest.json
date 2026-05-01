@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Medium to Markdown Exporter",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Export Medium articles as clean Markdown for Obsidian and other tools.",
   "action": {
     "default_popup": "src/popup/popup.html",
