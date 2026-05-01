@@ -16,7 +16,7 @@ export type ListExtractResult = ListExtractSuccess | ListExtractError;
  * Injected via chrome.scripting.executeScript({ func }).
  * Must not reference anything outside its body at runtime.
  */
-export function extractListArticles(): ListExtractResult {
+export async function extractListArticles(): Promise<ListExtractResult> {
   const normalizeTitle = (value: string): string =>
     value.replace(/\s+/g, ' ').trim().toLowerCase();
   const isIgnoredTitle = (value: string): boolean =>
@@ -30,6 +30,34 @@ export function extractListArticles(): ListExtractResult {
       return match[1].replace(/-/g, ' ');
     }
   };
+  const delay = (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+  const getPageHeight = (): number =>
+    Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+
+  async function autoScrollToLoadAllArticles(): Promise<void> {
+    const maxSteps = 50;
+    const settleThreshold = 3;
+    let stableSteps = 0;
+
+    for (let step = 0; step < maxSteps; step++) {
+      const beforeHeight = getPageHeight();
+      window.scrollTo({ top: beforeHeight, behavior: 'auto' });
+      await delay(800);
+
+      const afterHeight = getPageHeight();
+      const nearBottom = window.scrollY + window.innerHeight >= afterHeight - 8;
+      if (afterHeight <= beforeHeight + 8 && nearBottom) {
+        stableSteps += 1;
+      } else {
+        stableSteps = 0;
+      }
+
+      if (stableSteps >= settleThreshold) {
+        break;
+      }
+    }
+  }
 
   const ogSiteName = document.querySelector('meta[property="og:site_name"]');
   const isMedium =
@@ -61,56 +89,64 @@ export function extractListArticles(): ListExtractResult {
 
   const seen = new Set<string>();
   const articleUrls: string[] = [];
+  const initialScrollY = window.scrollY;
 
-  document.querySelectorAll('a[href]').forEach((el) => {
-    const href = (el as HTMLAnchorElement).href;
-    if (!href) return;
+  try {
+    // Medium list pages lazy-load additional cards as the page scrolls.
+    await autoScrollToLoadAllArticles();
 
-    let parsed: URL;
-    try {
-      parsed = new URL(href);
-    } catch {
-      return;
-    }
+    document.querySelectorAll('a[href]').forEach((el) => {
+      const href = (el as HTMLAnchorElement).href;
+      if (!href) return;
 
-    if (
-      parsed.hostname !== 'medium.com' &&
-      !parsed.hostname.endsWith('.medium.com')
-    ) {
-      return;
-    }
+      let parsed: URL;
+      try {
+        parsed = new URL(href);
+      } catch {
+        return;
+      }
 
-    const path = parsed.pathname;
+      if (
+        parsed.hostname !== 'medium.com' &&
+        !parsed.hostname.endsWith('.medium.com')
+      ) {
+        return;
+      }
 
-    // Skip known non-article paths
-    if (
-      /^\/(tag|topic|search|me|new-story|about|help|membership|plans|business|creators|m\/signin|subscribe)\b/.test(path) ||
-      /\/list\//.test(path) ||
-      path === '/' ||
-      path.endsWith('/lists') ||
-      path.endsWith('/followers') ||
-      path.endsWith('/following')
-    ) {
-      return;
-    }
+      const path = parsed.pathname;
 
-    // Medium article paths end with a hash slug: /title-abc1234f or /@user/title-abc1234f
-    // Require at least 6 hex chars at the end (Medium uses 12-char hex IDs)
-    if (!/\/[^/]+-[a-f0-9]{6,}\/?$/.test(path)) return;
+      // Skip known non-article paths
+      if (
+        /^\/(tag|topic|search|me|new-story|about|help|membership|plans|business|creators|m\/signin|subscribe)\b/.test(path) ||
+        /\/list\//.test(path) ||
+        path === '/' ||
+        path.endsWith('/lists') ||
+        path.endsWith('/followers') ||
+        path.endsWith('/following')
+      ) {
+        return;
+      }
 
-    // Ignore specifically filtered article titles.
-    const anchorTitle = (el.textContent || '').trim();
-    if (isIgnoredTitle(anchorTitle)) return;
+      // Medium article paths end with a hash slug: /title-abc1234f or /@user/title-abc1234f
+      // Require at least 6 hex chars at the end (Medium uses 12-char hex IDs)
+      if (!/\/[^/]+-[a-f0-9]{6,}\/?$/.test(path)) return;
 
-    const slugTitle = getSlugTitle(path);
-    if (slugTitle && isIgnoredTitle(slugTitle)) return;
+      // Ignore specifically filtered article titles.
+      const anchorTitle = (el.textContent || '').trim();
+      if (isIgnoredTitle(anchorTitle)) return;
 
-    const canonical = parsed.origin + parsed.pathname.replace(/\/$/, '');
-    if (!seen.has(canonical)) {
-      seen.add(canonical);
-      articleUrls.push(canonical);
-    }
-  });
+      const slugTitle = getSlugTitle(path);
+      if (slugTitle && isIgnoredTitle(slugTitle)) return;
+
+      const canonical = parsed.origin + parsed.pathname.replace(/\/$/, '');
+      if (!seen.has(canonical)) {
+        seen.add(canonical);
+        articleUrls.push(canonical);
+      }
+    });
+  } finally {
+    window.scrollTo({ top: initialScrollY, behavior: 'auto' });
+  }
 
   if (articleUrls.length === 0) {
     return {
