@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=400" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="popup.css" />
   <title>Medium Exporter</title>
 </head>
@@ -20,10 +20,21 @@
     <section id="list-mode" class="hidden">
       <p id="list-title" class="info-field"></p>
       <p id="list-count" class="info-field url"></p>
-      <div id="list-actions">
-        <button id="btn-download-all" disabled>Download All as ZIP</button>
-        <button id="btn-wordpress-all" disabled>Send All to WordPress</button>
+
+      <div id="list-selection" class="hidden">
+        <div class="list-selection-actions">
+          <button id="btn-select-all" type="button">Select all</button>
+          <button id="btn-clear-selection" type="button">Clear</button>
+        </div>
+        <div id="list-items"></div>
       </div>
+
+      <div id="list-actions">
+        <button id="btn-download-all" disabled>Download Selected as ZIP</button>
+        <button id="btn-wordpress-all" disabled>Send Selected to WordPress</button>
+        <button id="btn-retry-failed" class="hidden" disabled>Retry Failed</button>
+      </div>
+
       <div id="batch-progress" class="hidden">
         <div class="progress-bar">
           <div id="progress-fill"></div>
@@ -77,7 +88,7 @@
       <div id="wp-settings-panel" class="hidden">
         <label class="settings-label">
           Endpoint URL
-          <input type="text" id="wp-setting-endpoint" placeholder="http://192.168.68.92:9879/wp-json/wp/v2/posts" />
+          <input type="text" id="wp-setting-endpoint" placeholder="https://example.com/wp-json/wp/v2/posts" />
         </label>
         <label class="settings-label">
           Username

@@ -2,7 +2,8 @@
 
 ## Project Overview
 Chrome Extension (Manifest V3) that exports Medium articles to clean, Obsidian-compatible Markdown.
-Users click the extension icon on a Medium article, then copy markdown to clipboard or download as `.md`.
+Supports single-article export and list-page batch processing.
+Users can copy markdown, download `.md`/ZIP, send to Obsidian, or publish to WordPress.
 
 ## Tech Stack
 - **Build:** Vite + @crxjs/vite-plugin v2
@@ -13,10 +14,12 @@ Users click the extension icon on a Medium article, then copy markdown to clipbo
 
 ## Architecture
 
-### Three Components
-1. **Content Extractor** (`src/content/extractor.ts`) — Injected into Medium pages on demand via `chrome.scripting.executeScript({ func })`. Extracts article HTML + metadata. Must be self-contained (no imports at runtime).
-2. **Background Service Worker** (`src/background/service-worker.ts`) — Message router. Handles tab injection and file downloads. No DOM access.
-3. **Popup** (`src/popup/`) — User-facing UI. Runs Turndown conversion (needs DOM). Handles clipboard copy directly.
+### Core Components
+1. **Article Extractor** (`src/content/extractor.ts`) — Injected on Medium article pages via `chrome.scripting.executeScript({ func })`. Must be self-contained at runtime.
+2. **List Extractor** (`src/content/list-extractor.ts`) — Injected on Medium list pages to collect article URLs.
+3. **Background Service Worker** (`src/background/service-worker.ts`) — Message router, network fetches, file downloads, Obsidian API, WordPress API.
+4. **Popup** (`src/popup/`) — UI orchestrator. Runs Turndown conversion, handles selection state, batch progress, and retry.
+5. **Shared Parser** (`src/shared/article-parser.ts`) — Parses fetched article HTML during batch mode in popup context.
 
 ### Message Flow
 ```
@@ -24,6 +27,9 @@ Popup opens → EXTRACT → Background → injects extractor → returns { metad
 Copy click → popup calls navigator.clipboard.writeText() directly (no message needed)
 Download click → DOWNLOAD_FILE → Background → chrome.downloads.download
 Send to Obsidian click → SEND_TO_OBSIDIAN → Background → fetch PUT /vault/{path} → Obsidian Local REST API
+List page popup → EXTRACT_LIST → Background → injects list extractor → returns article URLs
+Batch worker → FETCH_ARTICLE_HTML per selected URL → popup parses + converts
+WordPress click → SEND_TO_WORDPRESS → Background → WordPress REST API /posts
 ```
 
 ### Why Turndown runs in Popup (not Service Worker)
@@ -46,18 +52,20 @@ medium-exporter/
 ├── public/icons/           # 16/32/48/128px PNGs
 └── src/
     ├── shared/
-    │   ├── types.ts        # Shared interfaces (ArticleMetadata, ExportOptions, ObsidianSettings)
-    │   ├── messages.ts     # Typed message protocol (EXTRACT, DOWNLOAD_FILE, SEND_TO_OBSIDIAN)
+    │   ├── types.ts        # Shared interfaces (ArticleMetadata, ExportOptions, integration settings)
+    │   ├── messages.ts     # Typed message protocol (extract, fetch, download, integrations)
+    │   ├── article-parser.ts # Shared parser for batch-fetched HTML
     │   ├── converter.ts    # Turndown config + custom rules
     │   └── frontmatter.ts  # YAML frontmatter builder
     ├── content/
-    │   └── extractor.ts    # Self-contained extractArticle() function
+    │   ├── extractor.ts    # Self-contained extractArticle() function
+    │   └── list-extractor.ts # Self-contained list URL extraction function
     ├── background/
     │   └── service-worker.ts
     └── popup/
         ├── popup.html
         ├── popup.css
-        └── popup.ts        # Orchestrator: UI state, conversion, copy, download
+        └── popup.ts        # Orchestrator: UI state, conversion, batch queue, integrations
 ```
 
 ## Key Conventions
@@ -94,11 +102,14 @@ All extraction logic (Medium detection, metadata parsing, HTML cleaning) must li
 - `scripting` — inject extractor function
 - `clipboardWrite` — clipboard access
 - `downloads` — file download trigger
-- `storage` — persist Obsidian settings via `chrome.storage.local`
+- `storage` — persist Obsidian/WordPress settings via `chrome.storage.local`
 
 No `content_scripts` in manifest (on-demand injection only). No `host_permissions`.
 
-`optional_host_permissions` for `127.0.0.1` and `localhost` (any port) — requested at runtime when user first configures Obsidian integration.
+`optional_host_permissions` are runtime-requested per feature:
+- HTTPS origins for list batch fetches (supports Medium redirects to publication domains)
+- `localhost` / `127.0.0.1` for local integrations over HTTP/HTTPS
+- HTTPS origins for WordPress and other non-local endpoints
 
 ## Dependencies
 ```
@@ -130,6 +141,12 @@ npm run build   # Production build (tsc + vite build)
 - Settings (API URL, API key, folder path) stored in `chrome.storage.local`
 - Settings passed in each message to keep the background service worker stateless
 
+### WordPress Integration
+- Uses WordPress REST API endpoint `/wp-json/wp/v2/posts`
+- Auth via username + Application Password (Basic auth)
+- List mode uses list title as category and attempts to resolve/create category before publishing
+- Non-local WordPress endpoints are expected to use HTTPS
+
 ## Design Principles
 - Fully local: no external API calls, no telemetry, no data persistence
 - Minimal permissions: `activeTab` over broad host permissions
@@ -145,6 +162,9 @@ npm run build   # Production build (tsc + vite build)
 - Obsidian not configured → "Configure Obsidian settings first." + settings panel expands
 - Obsidian auth failure → "Authentication failed. Check your API key."
 - Obsidian unreachable → "Could not connect to Obsidian. Make sure Obsidian is running with the Local REST API plugin enabled."
+- WordPress auth failure → "Authentication failed. Check your WordPress username and application password."
+- WordPress category resolution/create failures surface as WordPress send errors
+- Batch mode tracks failed URLs and allows "Retry Failed"
 - All errors shown in popup status area with `.error` styling
 
 ## Implementation Order

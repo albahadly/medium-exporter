@@ -80,6 +80,13 @@ export function extractArticle(): ExtractResult {
     document.querySelector('link[rel="canonical"]')?.getAttribute('href') ||
     window.location.href;
 
+  if (metadata.title.replace(/\s+/g, ' ').trim().toLowerCase() === 'medium rules') {
+    return {
+      success: false as const,
+      error: 'Ignored article title: Medium Rules.',
+    };
+  }
+
   // 3. Clean article HTML
   const clone = article.cloneNode(true) as HTMLElement;
 

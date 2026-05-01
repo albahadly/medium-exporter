@@ -69,6 +69,13 @@ export function parseArticleFromDoc(doc: Document, sourceUrl: string): ExtractRe
     (getMeta('article:published_time') || '').slice(0, 10);
   metadata.title = metadata.title || doc.title || '';
 
+  if (metadata.title.replace(/\s+/g, ' ').trim().toLowerCase() === 'medium rules') {
+    return {
+      success: false,
+      error: 'Ignored article title: Medium Rules.',
+    };
+  }
+
   // Clean article HTML — same strategy as extractArticle()
   const clone = article.cloneNode(true) as HTMLElement;
 

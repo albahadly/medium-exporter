@@ -206,6 +206,60 @@ button:disabled {
   margin-bottom: 12px;
 }
 
+#list-selection {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.list-selection-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.list-selection-actions button {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+#list-items {
+  max-height: 170px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px;
+  font-size: 12px;
+  color: #444;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.list-item:last-child {
+  border-bottom: none;
+}
+
+.list-item input {
+  margin-top: 2px;
+  flex: none;
+}
+
+.list-item span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-item.failed {
+  background: #fff5f5;
+}
+
 #list-actions {
   margin-top: 10px;
   display: flex;
@@ -225,6 +279,15 @@ button:disabled {
 
 #btn-wordpress-all:hover:not(:disabled) {
   background: #1d6586;
+}
+
+#btn-retry-failed {
+  background: #fff5cc;
+  border-color: #efcf66;
+}
+
+#btn-retry-failed:hover:not(:disabled) {
+  background: #f8e7a2;
 }
 
 .progress-bar {

@@ -6,9 +6,10 @@ Medium to Markdown Exporter (Chrome Extension)
 ## 1.2 Purpose
 Enable users to export Medium articles into **Markdown format** and:
 - Copy the Markdown to the clipboard
-- Optionally download the content as a `.md` file
+- Download single files or list batches
+- Optionally send content directly to Obsidian or WordPress
 
-The product removes dependency on paid third-party services and allows manual import into tools such as Obsidian.
+The product removes dependency on paid third-party services while keeping processing local to the extension, except explicit user-targeted sends (Obsidian/WordPress).
 
 ---
 
@@ -18,14 +19,14 @@ The product removes dependency on paid third-party services and allows manual im
 1. Convert Medium articles into clean, Obsidian-compatible Markdown
 2. Support one-click clipboard export
 3. Support optional `.md` file download
-4. Operate entirely locally with no external services
+4. Support list-page batch export with selective processing
+5. Support direct send to Obsidian and WordPress
 
 ## 2.2 Non-Goals (MVP)
-1. Direct Obsidian integration
-2. Image downloading or local attachment management
-3. Medium paywall circumvention
-4. Multi-platform support (Medium only)
-5. Sync, tagging automation, or highlights management
+1. Image downloading or local attachment management
+2. Medium paywall circumvention
+3. Multi-platform support (Medium only)
+4. Sync, tagging automation, or highlights management
 
 ---
 
@@ -46,7 +47,14 @@ The product removes dependency on paid third-party services and allows manual im
 5. User clicks **Copy as Markdown**
 6. Markdown content is copied to the clipboard
 7. (Optional) User clicks **Download .md**
-8. User pastes or moves the file into Obsidian manually
+8. (Optional) User sends directly to Obsidian or WordPress
+
+List mode flow:
+1. User opens a Medium list page
+2. Extension finds list article URLs
+3. User selects which articles to process
+4. User clicks **Download Selected as ZIP** or **Send Selected to WordPress**
+5. Failed items can be retried using **Retry Failed**
 
 ---
 
@@ -168,11 +176,17 @@ Frontmatter inclusion shall be controlled via a popup toggle.
 4. Action buttons:
 - Copy as Markdown
 - Download .md
+ - Send to Obsidian
+ - Send to WordPress
+5. List mode components:
+- Select-all / clear controls
+- Article checkbox list
+- Batch progress + retry failed button
 
 ## 6.2 UX Constraints
 1. No page reload required
-2. All actions complete within the popup
-3. No background network activity
+2. All actions are initiated from the popup
+3. Background service worker handles network and file operations
 
 ---
 
@@ -190,6 +204,8 @@ Frontmatter inclusion shall be controlled via a popup toggle.
 - `scripting`
 - `clipboardWrite`
 - `downloads` (only when file export is enabled)
+- `storage`
+- `optional_host_permissions` (requested at runtime for Medium batch fetches, Obsidian, and WordPress endpoints)
 
 ## 7.3 Dependencies
 - Bundled HTML-to-Markdown conversion library
@@ -200,9 +216,9 @@ Frontmatter inclusion shall be controlled via a popup toggle.
 # 8. Privacy and Security
 
 1. No data persistence
-2. No external API calls
-3. No telemetry, analytics, or tracking
-4. All processing occurs locally in the browser
+2. No telemetry, analytics, or tracking
+3. Extraction and conversion occur locally in the browser
+4. Network calls occur only for user-triggered Obsidian/WordPress sends and Medium list fetches
 
 ---
 
@@ -225,11 +241,11 @@ Frontmatter inclusion shall be controlled via a popup toggle.
 
 # 11. Future Scope (Out of MVP)
 
-1. Obsidian community plugin integration
-2. Local image downloading and attachment management
-3. Medium highlight extraction
-4. Batch export
-5. Support for additional platforms
+1. Local image downloading and attachment management
+2. Medium highlight extraction
+3. Support for additional platforms
+4. Draft scheduling and richer WordPress post options
+5. Export profiles for different Markdown targets
 
 ---
 

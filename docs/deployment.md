@@ -36,6 +36,11 @@ This produces an optimized `dist/` directory with all extension files.
 - [ ] "Copy as Markdown" produces valid Markdown
 - [ ] "Download .md" saves a file with correct filename format
 - [ ] "Send to Obsidian" delivers note to vault
+- [ ] WordPress settings save and single-article publish works
+- [ ] List page mode finds article URLs and supports item selection
+- [ ] "Download Selected as ZIP" creates ZIP with selected articles
+- [ ] "Retry Failed" appears only after partial batch failures
+- [ ] Batch WordPress publish assigns/resolves category from list title
 - [ ] Frontmatter toggle works (on/off)
 - [ ] Images toggle works (on/off)
 - [ ] Code blocks with backticks render correctly

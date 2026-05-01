@@ -53,20 +53,33 @@ The `extractArticle()` function in `src/content/extractor.ts` is serialized and 
 - Code blocks use dynamic fence length to handle content containing backticks
 - Post-processing handles whitespace normalization
 
+### Batch List Processing
+- List pages are extracted via `src/content/list-extractor.ts`
+- Batch fetches happen through background `FETCH_ARTICLE_HTML` messages
+- Popup uses bounded concurrency for faster processing and supports retrying failed URLs
+- Parsed article results are cached in-memory during the popup session to reduce duplicate work
+- Batch mode requests HTTPS host permission at runtime so redirects to publication domains can be fetched
+
 ### Obsidian Integration
 - Settings (API URL, API key, folder path) stored in `chrome.storage.local`
 - Settings passed in each message to keep the service worker stateless
-- `optional_host_permissions` requested at runtime for localhost access
+- `optional_host_permissions` requested at runtime for batch fetch hosts and integration hosts
 - Default API URL: `http://127.0.0.1:27123` (HTTP preferred over HTTPS to avoid cert issues)
+
+### WordPress Integration
+- Endpoint must be `https://.../wp-json/wp/v2/posts` for non-local hosts
+- Local HTTP is allowed for loopback (`localhost`, `127.0.0.1`)
+- Authentication uses WordPress Application Passwords via Basic auth
+- In list batch mode, list title is used as category name and resolved/created automatically
 
 ## Project Structure
 
 | Directory | Purpose |
 |-----------|---------|
 | `src/content/` | Content extractor (injected into pages) |
-| `src/background/` | Service worker (message routing, downloads, Obsidian API) |
-| `src/popup/` | Popup UI (HTML, CSS, TypeScript) |
-| `src/shared/` | Shared types, messages, converter, frontmatter |
+| `src/background/` | Service worker (message routing, fetch, downloads, Obsidian and WordPress APIs) |
+| `src/popup/` | Popup UI (single article + list batch orchestration) |
+| `src/shared/` | Shared types, messages, parser, converter, frontmatter |
 | `public/icons/` | Extension icons (SVG sources + generated PNGs) |
 | `docs/` | Project documentation |
 
@@ -80,4 +93,7 @@ Manual QA only (no automated tests in MVP). Test on:
 - Member-only article (partial content visible)
 - Non-Medium page (should show error)
 - Send to Obsidian (verify note appears in correct folder)
+- Send to WordPress from single article mode
+- Send selected list items to WordPress (category from list title)
+- Retry failed list items (ZIP and WordPress batch)
 - Paste output into Obsidian to verify rendering

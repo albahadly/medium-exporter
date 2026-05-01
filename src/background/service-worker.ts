@@ -45,7 +45,8 @@ chrome.runtime.onMessage.addListener(
       handleSendToWordPress(
         message.title,
         message.content,
-        message.settings
+        message.settings,
+        message.category
       ).then(sendResponse);
       return true;
     }
@@ -210,20 +211,31 @@ async function handleSendToWordPress(
 ): Promise<BackgroundResponse> {
   try {
     const credentials = btoa(`${settings.username}:${settings.password}`);
-    // If category is provided, send as categories array (WordPress REST API expects slugs or names)
-    const body: any = { title, content, status: 'publish' };
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Basic ${credentials}`,
+    };
 
-    /*
-    if (category) {
-      body.categories = [category];
+    const body: {
+      title: string;
+      content: string;
+      status: 'publish';
+      categories?: number[];
+    } = { title, content, status: 'publish' };
+
+    const categoryName = (category || '').trim();
+    if (categoryName) {
+      const categoryId = await resolveWordPressCategoryId(
+        settings.endpointUrl,
+        headers,
+        categoryName
+      );
+      body.categories = [categoryId];
     }
-*/
+
     const response = await fetch(settings.endpointUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${credentials}`,
-      },
+      headers,
       body: JSON.stringify(body),
       mode: 'cors',
       credentials: 'omit',
@@ -257,6 +269,113 @@ async function handleSendToWordPress(
   }
 }
 
+async function resolveWordPressCategoryId(
+  postsEndpoint: string,
+  headers: { 'Content-Type': string; Authorization: string },
+  categoryName: string
+): Promise<number> {
+  const categoriesEndpoint = buildWordPressCategoriesEndpoint(postsEndpoint);
+  const lookupUrl = new URL(categoriesEndpoint);
+  lookupUrl.searchParams.set('search', categoryName);
+  lookupUrl.searchParams.set('per_page', '100');
+
+  const lookupResponse = await fetch(lookupUrl.href, {
+    method: 'GET',
+    headers,
+    mode: 'cors',
+    credentials: 'omit',
+  });
+
+  if (!lookupResponse.ok) {
+    throw new Error(
+      `Category lookup failed (${lookupResponse.status}): ${lookupResponse.statusText}`
+    );
+  }
+
+  const normalizedTarget = normalizeWordPressCategory(categoryName);
+  const existingCategories = (await lookupResponse.json()) as Array<{
+    id?: number;
+    name?: string;
+    slug?: string;
+  }>;
+
+  const existing = existingCategories.find((item) => {
+    if (typeof item.id !== 'number') {
+      return false;
+    }
+    const name = normalizeWordPressCategory(item.name || '');
+    const slug = normalizeWordPressCategory(item.slug || '');
+    return name === normalizedTarget || slug === normalizedTarget;
+  });
+
+  if (existing?.id) {
+    return existing.id;
+  }
+
+  const createResponse = await fetch(categoriesEndpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      name: categoryName,
+      slug: slugifyWordPressCategory(categoryName),
+    }),
+    mode: 'cors',
+    credentials: 'omit',
+  });
+
+  if (createResponse.ok) {
+    const created = (await createResponse.json()) as { id?: number };
+    if (typeof created.id === 'number') {
+      return created.id;
+    }
+    throw new Error('Category create succeeded but no category id was returned.');
+  }
+
+  const createError = (await createResponse
+    .json()
+    .catch(() => null)) as
+    | {
+        code?: string;
+        data?: { term_id?: number };
+      }
+    | null;
+
+  if (
+    createError?.code === 'term_exists' &&
+    typeof createError.data?.term_id === 'number'
+  ) {
+    return createError.data.term_id;
+  }
+
+  throw new Error(
+    `Category create failed (${createResponse.status}): ${createResponse.statusText}`
+  );
+}
+
+function buildWordPressCategoriesEndpoint(postsEndpoint: string): string {
+  const parsed = new URL(postsEndpoint);
+  const replacement = parsed.pathname.replace(/\/posts\/?$/, '/categories');
+  parsed.pathname = replacement;
+  parsed.search = '';
+  return parsed.href;
+}
+
+function normalizeWordPressCategory(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function slugifyWordPressCategory(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
+    .slice(0, 100);
+
+  return slug || 'medium-list';
+}
+
 async function handleDownload(
   content: string,
   filename: string,
@@ -265,27 +384,30 @@ async function handleDownload(
   contentIsBase64: boolean
 ): Promise<BackgroundResponse> {
   try {
-    let base64: string;
+    let downloadUrl: string;
+    let objectUrl: string | null = null;
 
     if (contentIsBase64) {
-      base64 = content;
+      downloadUrl = `data:${mimeType};base64,${content}`;
     } else {
-      const encoder = new TextEncoder();
-      const uint8 = encoder.encode(content);
-      let binary = '';
-      for (let i = 0; i < uint8.length; i++) {
-        binary += String.fromCharCode(uint8[i]);
-      }
-      base64 = btoa(binary);
+      const blob = new Blob([content], {
+        type: `${mimeType};charset=utf-8`,
+      });
+      objectUrl = URL.createObjectURL(blob);
+      downloadUrl = objectUrl;
     }
 
-    const dataUrl = `data:${mimeType};base64,${base64}`;
-
-    await chrome.downloads.download({
-      url: dataUrl,
-      filename,
-      saveAs,
-    });
+    try {
+      await chrome.downloads.download({
+        url: downloadUrl,
+        filename,
+        saveAs,
+      });
+    } finally {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
 
     return { type: 'DOWNLOAD_SUCCESS' };
   } catch (err) {

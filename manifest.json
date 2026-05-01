@@ -34,7 +34,6 @@
     "https://127.0.0.1:*/*",
     "http://localhost:*/*",
     "https://localhost:*/*",
-    "http://*/*",
     "https://*/*",
     "https://medium.com/*",
     "https://*.medium.com/*"

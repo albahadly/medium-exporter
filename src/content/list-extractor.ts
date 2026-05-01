@@ -17,6 +17,20 @@ export type ListExtractResult = ListExtractSuccess | ListExtractError;
  * Must not reference anything outside its body at runtime.
  */
 export function extractListArticles(): ListExtractResult {
+  const normalizeTitle = (value: string): string =>
+    value.replace(/\s+/g, ' ').trim().toLowerCase();
+  const isIgnoredTitle = (value: string): boolean =>
+    normalizeTitle(value) === 'medium rules';
+  const getSlugTitle = (path: string): string => {
+    const match = path.match(/\/([^/]+)-[a-f0-9]{6,}\/?$/i);
+    if (!match) return '';
+    try {
+      return decodeURIComponent(match[1]).replace(/-/g, ' ');
+    } catch {
+      return match[1].replace(/-/g, ' ');
+    }
+  };
+
   const ogSiteName = document.querySelector('meta[property="og:site_name"]');
   const isMedium =
     (ogSiteName !== null && ogSiteName.getAttribute('content') === 'Medium') ||
@@ -83,6 +97,13 @@ export function extractListArticles(): ListExtractResult {
     // Medium article paths end with a hash slug: /title-abc1234f or /@user/title-abc1234f
     // Require at least 6 hex chars at the end (Medium uses 12-char hex IDs)
     if (!/\/[^/]+-[a-f0-9]{6,}\/?$/.test(path)) return;
+
+    // Ignore specifically filtered article titles.
+    const anchorTitle = (el.textContent || '').trim();
+    if (isIgnoredTitle(anchorTitle)) return;
+
+    const slugTitle = getSlugTitle(path);
+    if (slugTitle && isIgnoredTitle(slugTitle)) return;
 
     const canonical = parsed.origin + parsed.pathname.replace(/\/$/, '');
     if (!seen.has(canonical)) {
