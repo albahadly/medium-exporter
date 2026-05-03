@@ -80,6 +80,7 @@ The `extractArticle()` function in `src/content/extractor.ts` is serialized and 
 - HTTP is allowed for loopback and private-network hosts (`localhost`, `127.0.0.1`, `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`, and `.local` hostnames)
 - Authentication uses WordPress Application Passwords via Basic auth
 - In list batch mode, list title is used as category name and resolved/created automatically
+- In list batch mode, publish requests are sent sequentially with a fixed 5-second delay between requests
 
 ## Project Structure
 

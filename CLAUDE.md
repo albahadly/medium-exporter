@@ -146,6 +146,7 @@ npm run version:bump  # Bump extension patch version in package + manifest
 - Uses WordPress REST API endpoint `/wp-json/wp/v2/posts`
 - Auth via username + Application Password (Basic auth)
 - List mode uses list title as category and attempts to resolve/create category before publishing
+- List mode sends publish requests sequentially with a fixed 5-second delay between requests
 - Public WordPress endpoints must use HTTPS; HTTP is allowed for localhost/private-network hosts
 
 ## Design Principles

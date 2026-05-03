@@ -9,6 +9,7 @@ const DEFAULT_OBSIDIAN_API_URL = 'http://127.0.0.1:27123';
 const BATCH_FETCH_ORIGINS = ['https://*/*'];
 const DOWNLOAD_CONCURRENCY = 1;
 const WORDPRESS_CONCURRENCY = 1;
+const WORDPRESS_BATCH_DELAY_MS = 5000;
 const FETCH_RETRY_COUNT = 2;
 const RETRY_BACKOFF_MS = 250;
 const IGNORED_ARTICLE_ERROR = 'Ignored article title: Medium Rules.';
@@ -483,7 +484,8 @@ async function sendSelectedToWordPress(
     (done, total) => {
       updateProgress(done, total);
       setStatus(`Published ${done} of ${total} article(s)...`, 'info');
-    }
+    },
+    WORDPRESS_BATCH_DELAY_MS
   );
 
   const failures = collectFailures(results);
@@ -649,7 +651,8 @@ async function processWithConcurrency<T>(
   urls: string[],
   concurrency: number,
   worker: (url: string) => Promise<BatchResult<T>>,
-  onProgress: (done: number, total: number) => void
+  onProgress: (done: number, total: number) => void,
+  delayBetweenItemsMs?: number
 ): Promise<Array<BatchResult<T>>> {
   const results: Array<BatchResult<T> | undefined> = new Array(urls.length);
   let nextIndex = 0;
@@ -672,7 +675,11 @@ async function processWithConcurrency<T>(
       onProgress(completed, urls.length);
 
       if (shouldDelayBetweenArticles && nextIndex < urls.length) {
-        await delay(getRandomBatchDelayMs());
+        const waitMs =
+          delayBetweenItemsMs !== undefined
+            ? Math.max(0, delayBetweenItemsMs)
+            : getRandomBatchDelayMs();
+        await delay(waitMs);
       }
     }
   };

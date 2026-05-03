@@ -90,6 +90,7 @@ Notes:
 - Public endpoints must use HTTPS.
 - HTTP is allowed only for localhost and private-network hosts (for example `127.0.0.1`, `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`, and `.local` hostnames).
 - In list mode, the list title is used as the WordPress category name. The extension resolves or creates the category automatically.
+- In list mode, WordPress publishes are throttled with a fixed 5-second delay between requests.
 
 ### Example output
 
