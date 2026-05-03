@@ -870,10 +870,12 @@ function normalizeAndValidateEndpointUrl(
     };
   }
 
-  if (parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname)) {
+  if (parsed.protocol === 'http:' && !isLocalNetworkHost(parsed.hostname)) {
     return {
       ok: false,
-      error: `${service} API URL must use HTTPS for non-local hosts.`,
+      error:
+        `${service} API URL must use HTTPS for public hosts. ` +
+        'HTTP is only allowed for localhost and private-network hosts.',
     };
   }
 
@@ -894,12 +896,60 @@ function normalizeAndValidateEndpointUrl(
 }
 
 function isLoopbackHost(hostname: string): boolean {
+  const normalized = normalizeHost(hostname);
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
+}
+
+function normalizeHost(hostname: string): string {
   const normalized = hostname.toLowerCase();
+  if (normalized.startsWith('[') && normalized.endsWith(']')) {
+    return normalized.slice(1, -1);
+  }
+  return normalized;
+}
+
+function isPrivateIpv4Host(hostname: string): boolean {
+  const normalized = normalizeHost(hostname);
+  if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(normalized)) {
+    return false;
+  }
+
+  const octets = normalized.split('.').map((part) => Number(part));
+  if (octets.some((octet) => Number.isNaN(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+
+  const [first, second] = octets;
   return (
-    normalized === 'localhost' ||
-    normalized === '127.0.0.1' ||
+    first === 10 ||
+    first === 127 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 169 && second === 254)
+  );
+}
+
+function isPrivateIpv6Host(hostname: string): boolean {
+  const normalized = normalizeHost(hostname);
+  if (!normalized.includes(':')) {
+    return false;
+  }
+
+  return (
     normalized === '::1' ||
-    normalized === '[::1]'
+    normalized.startsWith('fc') ||
+    normalized.startsWith('fd') ||
+    normalized.startsWith('fe80:')
+  );
+}
+
+function isLocalNetworkHost(hostname: string): boolean {
+  const normalized = normalizeHost(hostname);
+  return (
+    isLoopbackHost(normalized) ||
+    normalized.endsWith('.local') ||
+    isPrivateIpv4Host(normalized) ||
+    isPrivateIpv6Host(normalized)
   );
 }
 

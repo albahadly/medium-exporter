@@ -75,8 +75,9 @@ The `extractArticle()` function in `src/content/extractor.ts` is serialized and 
 - Default API URL: `http://127.0.0.1:27123` (HTTP preferred over HTTPS to avoid cert issues)
 
 ### WordPress Integration
-- Endpoint must be `https://.../wp-json/wp/v2/posts` for non-local hosts
-- Local HTTP is allowed for loopback (`localhost`, `127.0.0.1`)
+- Endpoint must end with `/wp-json/wp/v2/posts`
+- Public hosts must use HTTPS
+- HTTP is allowed for loopback and private-network hosts (`localhost`, `127.0.0.1`, `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`, and `.local` hostnames)
 - Authentication uses WordPress Application Passwords via Basic auth
 - In list batch mode, list title is used as category name and resolved/created automatically
 

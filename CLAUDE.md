@@ -108,8 +108,8 @@ No `content_scripts` in manifest (on-demand injection only). No `host_permission
 
 `optional_host_permissions` are runtime-requested per feature:
 - HTTPS origins for list batch fetches (supports Medium redirects to publication domains)
-- `localhost` / `127.0.0.1` for local integrations over HTTP/HTTPS
-- HTTPS origins for WordPress and other non-local endpoints
+- HTTPS origins for public integration endpoints
+- HTTP origins for localhost/private-network integration endpoints (requested per origin at runtime)
 
 ## Dependencies
 ```
@@ -146,7 +146,7 @@ npm run version:bump  # Bump extension patch version in package + manifest
 - Uses WordPress REST API endpoint `/wp-json/wp/v2/posts`
 - Auth via username + Application Password (Basic auth)
 - List mode uses list title as category and attempts to resolve/create category before publishing
-- Non-local WordPress endpoints are expected to use HTTPS
+- Public WordPress endpoints must use HTTPS; HTTP is allowed for localhost/private-network hosts
 
 ## Design Principles
 - Fully local: no external API calls, no telemetry, no data persistence

@@ -58,7 +58,7 @@ Always run type checking after TypeScript edits.
 - Endpoint should be `/wp-json/wp/v2/posts`
 - Uses Basic auth with username + Application Password
 - In list mode, list title is used as category name; service worker resolves or creates category ID
-- Require HTTPS for non-local hosts
+- Require HTTPS for public hosts; allow HTTP for localhost/private-network hosts
 
 ## Permissions and Security
 - Keep install-time permissions minimal.

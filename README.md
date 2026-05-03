@@ -81,12 +81,14 @@ The extension defaults to `http://127.0.0.1:27123` (the plugin's HTTP server). U
 ### Send to WordPress setup
 
 1. Generate an Application Password in WordPress for your user account.
-2. In extension **WordPress Settings**, set endpoint URL to:
-	- `https://your-site.example/wp-json/wp/v2/posts`
+2. In extension **WordPress Settings**, set endpoint URL to either:
+	- `https://your-site.example/wp-json/wp/v2/posts` (public host)
+	- `http://192.168.1.50:9879/wp-json/wp/v2/posts` (private LAN/dev host)
 3. Enter your WordPress username and application password, then click **Save**.
 
 Notes:
-- For non-local endpoints, the extension requires HTTPS.
+- Public endpoints must use HTTPS.
+- HTTP is allowed only for localhost and private-network hosts (for example `127.0.0.1`, `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`, and `.local` hostnames).
 - In list mode, the list title is used as the WordPress category name. The extension resolves or creates the category automatically.
 
 ### Example output

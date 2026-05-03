@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Medium to Markdown Exporter",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Export Medium articles as clean Markdown for Obsidian and other tools.",
   "action": {
     "default_popup": "src/popup/popup.html",
@@ -34,6 +34,7 @@
     "https://127.0.0.1:*/*",
     "http://localhost:*/*",
     "https://localhost:*/*",
+    "http://*/*",
     "https://*/*",
     "https://medium.com/*",
     "https://*.medium.com/*"
